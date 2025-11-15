@@ -1,5 +1,7 @@
 # [Nicks.Guru](https://nicks.guru) Commons Spring State Machine Starter
 
+<img alt="Latest version" src="https://img.shields.io/maven-central/v/guru.nicks.commons/statemachine-starter?filter=!25*&label=Latest%20version:&cacheSeconds=7200"> <img alt="Release date"  src="https://img.shields.io/maven-central/last-update/guru.nicks.commons/statemachine-starter?label=&cacheSeconds=7200">
+
 Starter for working with Spring State Machine.
 
 ## Versioning
