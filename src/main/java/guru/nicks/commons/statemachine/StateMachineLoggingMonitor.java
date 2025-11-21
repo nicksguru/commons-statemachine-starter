@@ -1,6 +1,6 @@
 package guru.nicks.commons.statemachine;
 
-import guru.nicks.commons.utils.TimeUtils;
+import guru.nicks.commons.utils.text.TimeUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.statemachine.StateContext;
