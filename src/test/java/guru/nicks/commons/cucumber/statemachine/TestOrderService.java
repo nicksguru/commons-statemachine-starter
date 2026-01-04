@@ -8,7 +8,6 @@ import guru.nicks.commons.exception.http.NotFoundException;
 import guru.nicks.commons.statemachine.StateMachineAware;
 import guru.nicks.commons.statemachine.StateMachineGraphVisualizer;
 import guru.nicks.commons.statemachine.StateMachineStartCompletionListener;
-import guru.nicks.commons.utils.TransformUtils;
 
 import jakarta.annotation.Nullable;
 import lombok.Getter;
@@ -21,7 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 @Service
@@ -54,22 +52,16 @@ public class TestOrderService implements
     @Transactional
     @Nullable
     @Override
-    public <T> T getWithStateMachine(UUID orderId,
-            Function<StateMachine<TestOrderState, TestOrderEvent>, T> function) {
+    public <T> T mapStateMachine(UUID orderId,
+            Function<StateMachine<TestOrderState, TestOrderEvent>, T> mapper) {
         if (!repository.existsById(orderId)) {
             throw new NotFoundException();
         }
 
         var stateMachine = waitForStateMachineStart(orderId);
-        T result = function.apply(stateMachine);
+        T result = mapper.apply(stateMachine);
         waitForStateMachineStop(orderId);
         return result;
-    }
-
-    @Transactional
-    @Override
-    public void runWithStateMachine(UUID orderId, Consumer<StateMachine<TestOrderState, TestOrderEvent>> consumer) {
-        getWithStateMachine(orderId, TransformUtils.toFunction(consumer));
     }
 
     @Override

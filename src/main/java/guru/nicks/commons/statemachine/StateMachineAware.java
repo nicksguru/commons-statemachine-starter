@@ -14,7 +14,6 @@ import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.statemachine.service.StateMachineService;
 import reactor.core.publisher.Mono;
 
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static guru.nicks.commons.validation.dsl.ValiDsl.checkNotNull;
@@ -35,7 +34,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     }
 
     /**
-     * Sends event to state machine (calls {@link #getWithStateMachine(Object, Function)} internally). Returns after the
+     * Sends event to state machine (calls {@link #mapStateMachine(Object, Function)} internally). Returns after the
      * event has been accepted/rejected (i.e. processed successfully, or rejected by the transition-bound action, or
      * rejected because there's no such path in the transition graph).
      * <p>
@@ -50,7 +49,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     default void processEventInStateMachine(ID entityId, E event) {
         checkNotNull(entityId, "entityId");
 
-        Exception e = getWithStateMachine(entityId, stateMachine -> {
+        Exception e = mapStateMachine(entityId, stateMachine -> {
             getLog().debug("[{}] Sending event {} to state machine (current state machine state: {})",
                     entityId, event, stateMachine.getState().getId());
 
@@ -78,26 +77,17 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     }
 
     /**
-     * Starts state machine for the given entity, calls the given function, waits until the state machine is stopped (so
-     * all asynchronous listeners have completed - for example, updated entity state in DB). Transaction demarcation is
-     * up to subclasses.
+     * Starts state machine for the given entity ID, calls the given function, waits until the state machine is stopped
+     * (so all asynchronous listeners have completed - for example, updated entity state in DB). Transaction demarcation
+     * is up to subclasses.
      *
      * @param entityId ID of object whose state is being managed
-     * @param function function to apply to the state machine
+     * @param mapper   function to apply to the state machine
      * @param <T>      function return type
      * @return what {@code function} has returned
      */
     @Nullable
-    <T> T getWithStateMachine(ID entityId, Function<StateMachine<S, E>, T> function);
-
-    /**
-     * Does the same as {@link #getWithStateMachine(Object, Function)}, just returns no result. Transaction demarcation
-     * is up to subclasses, therefore this method has no default implementation.
-     *
-     * @param entityId ID of object whose state is being managed
-     * @param consumer consumer to call
-     */
-    void runWithStateMachine(ID entityId, Consumer<StateMachine<S, E>> consumer);
+    <T> T mapStateMachine(ID entityId, Function<StateMachine<S, E>, T> mapper);
 
     /**
      * Retrieves state from state machine.
@@ -106,7 +96,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
      * @return entity state
      */
     default S getStateFromStateMachine(ID entityId) {
-        S state = getWithStateMachine(entityId, stateMachine -> stateMachine.getState().getId());
+        S state = mapStateMachine(entityId, stateMachine -> stateMachine.getState().getId());
         return checkNotNull(state, "state");
     }
 
@@ -123,7 +113,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
      */
     @Nullable
     default <T> T getExtendedStateFromStateMachine(ID entityId, P property, Class<T> clazz) {
-        return getWithStateMachine(entityId, stateMachine -> property.readFromStateMachine(stateMachine, clazz));
+        return mapStateMachine(entityId, stateMachine -> property.readFromStateMachine(stateMachine, clazz));
     }
 
     /**
