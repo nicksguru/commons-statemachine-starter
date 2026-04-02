@@ -10,7 +10,8 @@ import org.springframework.statemachine.support.DefaultStateMachineContext;
 
 /**
  * Autoconfiguration that fixes Kryo serialization error 'Class not registered' for {@link DefaultStateMachineContext},
- * arrays, etc. The {@lin Kryo} bean is declared as primary to override the default one. To disblae this behavior, use:
+ * arrays, etc. The {@link Kryo} bean is declared as primary to override the default one. To disable this behavior,
+ * use:
  * <pre>{@code
  * @SpringBootApplication(exclude = CommonsKryoAutoConfiguration.class)
  * }</pre>
