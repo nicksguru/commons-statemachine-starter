@@ -52,8 +52,7 @@ public class TestOrderService implements
     @Transactional
     @Nullable
     @Override
-    public <T> T mapStateMachine(UUID orderId,
-            Function<StateMachine<TestOrderState, TestOrderEvent>, T> mapper) {
+    public <T> T withStateMachine(UUID orderId, Function<StateMachine<TestOrderState, TestOrderEvent>, T> mapper) {
         if (!repository.existsById(orderId)) {
             throw new NotFoundException();
         }

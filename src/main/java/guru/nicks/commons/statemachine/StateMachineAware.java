@@ -1,6 +1,7 @@
 package guru.nicks.commons.statemachine;
 
 import guru.nicks.commons.exception.http.ConflictException;
+import guru.nicks.commons.exception.http.NotFoundException;
 import guru.nicks.commons.statemachine.domain.ExtendedState;
 import guru.nicks.commons.statemachine.domain.StateMachineException;
 
@@ -34,14 +35,14 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     }
 
     /**
-     * Sends event to state machine (calls {@link #mapStateMachine(Object, Function)} internally). Returns after the
+     * Sends event to state machine (calls {@link #withStateMachine(Object, Function)} internally). Returns after the
      * event has been accepted/rejected (i.e. processed successfully, or rejected by the transition-bound action, or
      * rejected because there's no such path in the transition graph).
      * <p>
      * Event processing is, internally, asynchronous and non-transactional (transition-bound actions must start own
      * transactions if needed), but <b>this method is synchronous</b> - it waits for the event processing to complete.
      *
-     * @param entityId ID of object whose state is being managed
+     * @param entityId ID of entity whose state is being managed
      * @param event    event related to the object being managed
      * @throws StateMachineException its cause is the exception thrown by the transition-bound action, or by the state
      *                               machine itself, or {@link ConflictException} if rejected by the transition graph
@@ -49,7 +50,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     default void processEventInStateMachine(ID entityId, E event) {
         checkNotNull(entityId, "entityId");
 
-        Exception e = mapStateMachine(entityId, stateMachine -> {
+        Exception e = withStateMachine(entityId, stateMachine -> {
             getLog().debug("[{}] Sending event {} to state machine (current state machine state: {})",
                     entityId, event, stateMachine.getState().getId());
 
@@ -77,26 +78,33 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     }
 
     /**
-     * Starts state machine for the given entity ID, calls the given function, waits until the state machine is stopped
-     * (so all asynchronous listeners have completed - for example, updated entity state in DB). Transaction demarcation
-     * is up to subclasses.
+     * Starts state machine for the given entity ID, calls the given function, and waits until the state machine is
+     * stopped (i.e. all asynchronous listeners have completed - for example, updated the entity state in DB).
+     * Transaction demarcation is up to subclasses.
      *
-     * @param entityId ID of object whose state is being managed
-     * @param mapper   function to apply to the state machine
-     * @param <T>      function return type
+     * @param entityId ID of entity whose state is being managed (will be used to identify the state machine)
+     * @param mapper   function to apply to the state machine, the flow is usually as follows:
+     *                 <ul>
+     *                  <li>if the entity does not exist in DB, throw a subclass of {@link NotFoundException}</li>
+     *                  <li>call {@link #waitForStateMachineStart(Object)} (which succeeds for any entity ID, hence the
+     *                      check above)</li>
+     *                  <li>perform the business logic, such as {@link #processEventInStateMachine(Object, Object)}</li>
+     *                  <li>call {@link #waitForStateMachineStop(Object)}</li>
+     *                 </ul>
+     * @param <T>      function result type
      * @return what {@code function} has returned
      */
     @Nullable
-    <T> T mapStateMachine(ID entityId, Function<StateMachine<S, E>, T> mapper);
+    <T> T withStateMachine(ID entityId, Function<StateMachine<S, E>, T> mapper);
 
     /**
      * Retrieves state from state machine.
      *
-     * @param entityId ID of object whose state is being managed
+     * @param entityId ID of entity whose state is being managed
      * @return entity state
      */
     default S getStateFromStateMachine(ID entityId) {
-        S state = mapStateMachine(entityId, stateMachine -> stateMachine.getState().getId());
+        S state = withStateMachine(entityId, stateMachine -> stateMachine.getState().getId());
         return checkNotNull(state, "state");
     }
 
@@ -105,7 +113,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
      * retrieves state machine internals. Everything that needs to be exposed on the business level should be stored in
      * DB by transition-bound actions.
      *
-     * @param entityId ID of object whose state is being managed
+     * @param entityId ID of entity whose state is being managed
      * @param property property to retrieve
      * @param clazz    property value class
      * @param <T>      property value type
@@ -113,7 +121,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
      */
     @Nullable
     default <T> T getExtendedStateFromStateMachine(ID entityId, P property, Class<T> clazz) {
-        return mapStateMachine(entityId, stateMachine -> property.readFromStateMachine(stateMachine, clazz));
+        return withStateMachine(entityId, stateMachine -> property.readFromStateMachine(stateMachine, clazz));
     }
 
     /**
@@ -121,7 +129,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
      * in-memory cache, or restores it from a persistent state, or creates a new machine. Then, implementations MUST
      * wait until the (asynchronous) state machine is started.
      *
-     * @param entityId ID of object whose state is being managed
+     * @param entityId ID of entity whose state is being managed
      * @return state machine
      */
     StateMachine<S, E> waitForStateMachineStart(ID entityId);
@@ -129,7 +137,7 @@ public interface StateMachineAware<S, E, P extends ExtendedState, ID> {
     /**
      * Calls {@link StateMachineService#releaseStateMachine(String)} which waits until the state machine is stopped.
      *
-     * @param entityId ID of object whose state is being managed
+     * @param entityId ID of entity whose state is being managed
      */
     void waitForStateMachineStop(ID entityId);
 
